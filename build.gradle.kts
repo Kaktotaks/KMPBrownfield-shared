@@ -17,7 +17,7 @@ plugins {
 // Координати бібліотеки: com.example.tasks:shared:0.2.0.
 // Зараз їх використовує composite build, пізніше — публікація в Maven.
 group = "com.example.tasks"
-version = "0.3.0"
+version = "0.4.0"
 
 kotlin {
     compilerOptions {
@@ -55,6 +55,9 @@ kotlin {
             // тому android-app має бачити їх транзитивно.
             api(libs.kotlinx.datetime)
             api(libs.kotlinx.coroutines.core)
+            // ⚡️ Google androidx ViewModel — мультиплатформний (є iosArm64/iosSimulatorArm64).
+            // api: Android-застосунок використовує ці VM як звичайні androidx ViewModel.
+            api(libs.androidx.lifecycle.viewmodel)
 
             // Мережа: Ktor + kotlinx.serialization. Деталь реалізації → implementation.
             implementation(libs.ktor.client.core)

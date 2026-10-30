@@ -30,7 +30,14 @@ Plugin `co.touchlab.skie` generates Swift wrappers into `Shared.framework` (iOS 
 `suspend` → `async` (any thread, cancellation), `Flow` → `AsyncSequence`, sealed → `onEnum(of:)`,
 Kotlin enums → Swift enums. Replaced the hand-written `watchState` callback bridge.
 
-ViewModels stay native — next steps.
+## Presentation layer (`src/commonMain/.../presentation`) — step 4
+ViewModels shared by both apps, built on Google's multiplatform `androidx.lifecycle.ViewModel`:
+`TaskListViewModel`, `TaskDetailViewModel(taskId)`, `TaskEditorViewModel(taskId | NEW_TASK_ID)`, `StatsViewModel`.
+Each exposes `uiState: StateFlow<...>` + event methods (`onQueryChange`, `save()`, ...).
+- Android: regular androidx ViewModels (ViewModelProvider, survive configuration changes).
+- iOS: observed via SKIE (`for await state in vm.uiState`); no ViewModelStoreOwner on iOS, so the
+  Swift wrapper calls `viewModel.clear()` (iosMain) on deinit to cancel `viewModelScope`.
+- Tested once in `commonTest/.../presentation` (Dispatchers.Main replaced by a test dispatcher).
 
 ## Commands
 ```sh
