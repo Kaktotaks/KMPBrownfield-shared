@@ -1,0 +1,91 @@
+# ⚡️ Release: одна версія → Maven-артефакт для Android + XCFramework/SPM для iOS.
+#
+# Запуск: GitHub → Actions → Release → Run workflow → version = 0.5.0
+#   (або: gh workflow run release.yml -f version=0.5.0)
+#
+# Порядок кроків — це і є "commit-after-build" варіанту A:
+#   1. тести
+#   2. збірка Shared.xcframework → zip → checksum
+#   3. Package.swift ← version + checksum → коміт у main → тег 0.5.0 → push
+#   4. GitHub Release 0.5.0 з zip (URL з Package.swift стає живим)
+#   5. Maven publish 0.5.0 у GitHub Packages
+# Тег ставиться на коміт з ОНОВЛЕНИМ Package.swift, тому SPM за тегом 0.5.0
+# отримує маніфест, що вказує саме на цей zip.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver без префікса v, напр. 0.5.0"
+        required: true
+
+permissions:
+  contents: write   # коміт + тег + GitHub Release
+  packages: write   # GitHub Packages (Maven)
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Version must be X.Y.Z"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "::error::Tag $VERSION already exists"; exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Test
+        run: ./gradlew allTests
+
+      - name: Build XCFramework
+        run: ./gradlew assembleSharedReleaseXCFramework -PsharedVersion="$VERSION"
+
+      # ditto (не zip): зберігає симлінки й структуру .framework, як очікує SPM.
+      - name: Zip + checksum
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/XCFrameworks/release/Shared.xcframework Shared.xcframework.zip
+          echo "CHECKSUM=$(swift package compute-checksum Shared.xcframework.zip)" >> "$GITHUB_ENV"
+
+      - name: Update Package.swift, commit, tag
+        run: |
+          sed -i '' -E "s/^let version = \".*\"/let version = \"$VERSION\"/" Package.swift
+          sed -i '' -E "s/^let checksum = \".*\"/let checksum = \"$CHECKSUM\"/" Package.swift
+          swift package dump-package > /dev/null
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release $VERSION (Package.swift checksum)"
+          git tag "$VERSION"
+          git push origin main "$VERSION"
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" Shared.xcframework.zip \
+            --title "$VERSION" --generate-notes \
+            --notes "SPM: https://github.com/${{ github.repository }} @ $VERSION · Maven: com.example.tasks:shared:$VERSION"
+
+      - name: Publish to GitHub Packages (Maven)
+        env:
+          ORG_GRADLE_PROJECT_GitHubPackagesUsername: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_GitHubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository -PsharedVersion="$VERSION"

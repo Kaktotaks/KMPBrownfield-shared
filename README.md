@@ -39,8 +39,36 @@ Each exposes `uiState: StateFlow<...>` + event methods (`onQueryChange`, `save()
   Swift wrapper calls `viewModel.clear()` (iosMain) on deinit to cancel `viewModelScope`.
 - Tested once in `commonTest/.../presentation` (Dispatchers.Main replaced by a test dispatcher).
 
+## Distribution — step 6 (option A: `Package.swift` lives in this repo)
+
+One version (a git tag like `0.5.0`) is shipped two ways:
+
+| Consumer | Artifact | Where |
+|---|---|---|
+| iOS (SPM) | `Shared.xcframework.zip` + `Package.swift` (`binaryTarget(url:checksum:)`) | GitHub Release `0.5.0` |
+| Android (Gradle) | `com.example.tasks:shared:0.5.0` (+ `shared-android`, Gradle module metadata) | GitHub Packages (Maven) |
+
+- `.github/workflows/ci.yml` runs `allTests`, builds a debug XCFramework and validates `Package.swift` on every PR and push to `main`.
+- `.github/workflows/release.yml` runs by hand (`gh workflow run release.yml -f version=0.5.0`): tests, builds the XCFramework, computes the checksum, commits `Package.swift`, tags, creates the GitHub Release and publishes to Maven.
+- `version` and `checksum` in `Package.swift` are written by CI only.
+
+### Consuming a release
+- **iOS:** Xcode → Add Package Dependencies → `https://github.com/Kaktotaks/KMPBrownfield-shared`, product `Shared`.
+- **Android:** GitHub Packages needs a token even for public packages. Put a classic PAT with `read:packages` into `~/.gradle/gradle.properties`:
+  ```properties
+  GitHubPackagesUsername=<github-login>
+  GitHubPackagesPassword=<token>
+  ```
+
+### Local development (changing shared and an app together)
+- **Android:** `-PuseLocalShared=true` (or `useLocalShared=true` in `~/.gradle/gradle.properties`) switches android-app back to `includeBuild("../shared")`.
+- **iOS:** `./gradlew assembleSharedDebugXCFramework`, then in Xcode replace the remote package with *Add Local…* → this folder. `Package.swift` picks `build/XCFrameworks/debug/Shared.xcframework` when it exists. Re-run the Gradle task after Kotlin changes.
+
 ## Commands
 ```sh
 ./gradlew allTests                              # common tests on Android host + iOS simulator
-./gradlew :linkDebugFrameworkIosSimulatorArm64  # build the iOS framework manually
+./gradlew assembleSharedDebugXCFramework        # build/XCFrameworks/debug/Shared.xcframework
+./gradlew assembleSharedReleaseXCFramework      # what CI zips for a release
+./gradlew publishToMavenLocal                   # try the Maven publication locally (~/.m2)
+swift package dump-package                      # validate Package.swift
 ```

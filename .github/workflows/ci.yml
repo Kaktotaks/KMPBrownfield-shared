@@ -1,0 +1,41 @@
+# ⚡️ CI: перевіряє shared на кожному PR і push у main.
+# macOS-раннер, бо iOS-тести (iosSimulatorArm64Test) і Kotlin/Native для Apple
+# збираються лише на macOS. Для публічного репозиторію хвилини безкоштовні.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "Package.swift"   # коміт release-бота змінює лише маніфест
+      - "README.md"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      # Gradle daemon сам завантажить AZUL 21 (gradle/gradle-daemon-jvm.properties),
+      # але launcher-у теж потрібна JDK — ставимо ту саму, щоб не качати двічі.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      # Кеш Gradle (залежності, Kotlin/Native toolchain ~/.konan) між запусками.
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Android host-тести + iOS-тести на симуляторі.
+      - run: ./gradlew allTests
+
+      # Димова перевірка дистрибутиву: XCFramework збирається (SKIE + library evolution)
+      # і Package.swift валідний.
+      - run: ./gradlew assembleSharedDebugXCFramework
+      - run: swift package dump-package > /dev/null

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -12,12 +13,16 @@ plugins {
     //   sealed class    → onEnum(of:) → exhaustive switch
     //   enum class      → справжній Swift enum
     alias(libs.plugins.skie)
+    // ⚡️ Публікація в Maven (GitHub Packages) для android-app. KMP-плагін сам створює
+    // публікації: shared (root, Gradle module metadata) + shared-android + shared-iosarm64 + ...
+    `maven-publish`
 }
 
-// Координати бібліотеки: com.example.tasks:shared:0.2.0.
-// Зараз їх використовує composite build, пізніше — публікація в Maven.
+// Координати бібліотеки: com.example.tasks:shared:<version>.
+// ⚡️ Джерело правди для версії — git-тег. Release workflow передає -PsharedVersion=0.5.0;
+// локально (composite build / debug XCFramework) версія не важлива, тому "0.0.0-local".
 group = "com.example.tasks"
-version = "0.4.0"
+version = providers.gradleProperty("sharedVersion").getOrElse("0.0.0-local")
 
 kotlin {
     compilerOptions {
@@ -37,7 +42,11 @@ kotlin {
         withHostTest {}
     }
 
-    // iOS: Kotlin/Native → Shared.framework для ios-app (direct integration через embedAndSign).
+    // iOS: Kotlin/Native → Shared.framework.
+    // ⚡️ XCFramework("Shared") збирає ОДИН контейнер з усіма iOS-слайсами (device + simulator):
+    //   ./gradlew assembleSharedReleaseXCFramework → build/XCFrameworks/release/Shared.xcframework
+    // CI пакує його в zip, кладе в GitHub Release, а Package.swift посилається на цей zip.
+    val xcFramework = XCFramework("Shared")
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
@@ -45,6 +54,7 @@ kotlin {
         target.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            xcFramework.add(this)
         }
     }
 
@@ -77,6 +87,31 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
+        }
+    }
+}
+
+// ⚡️ SKIE + бінарна дистрибуція. XCFramework, зібраний на CI одним Xcode, підключається
+// застосунком, який збирається ІНШИМ Xcode. Без library evolution Swift-частина SKIE
+// (.swiftmodule) прив'язана до конкретної версії компілятора → "module compiled with Swift X
+// cannot be imported by Swift Y". produceDistributableFramework() вмикає library evolution
+// (.swiftinterface замість бінарного .swiftmodule) + relative paths у debug-символах.
+skie {
+    build {
+        produceDistributableFramework()
+    }
+}
+
+// ⚡️ Куди публікується Maven-артефакт. GitHub Packages прив'язаний до репозиторію.
+// credentials(PasswordCredentials::class) читає Gradle-властивості
+// GitHubPackagesUsername / GitHubPackagesPassword (на CI — через env
+// ORG_GRADLE_PROJECT_GitHubPackagesUsername/Password), тож токен не потрапляє в код.
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/Kaktotaks/KMPBrownfield-shared")
+            credentials(PasswordCredentials::class)
         }
     }
 }
