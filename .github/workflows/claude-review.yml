@@ -4,12 +4,11 @@
 # and in the run's Summary tab.
 #
 # One-time setup:
-#   1. Install the Claude GitHub App on this repo: https://github.com/apps/claude
-#   2. Run `claude setup-token` locally and save the token as the repository secret
+#   1. Run `claude setup-token` locally and save the token as the repository secret
 #      CLAUDE_CODE_OAUTH_TOKEN (Settings → Secrets and variables → Actions).
-#      Using an API key instead? Save it as ANTHROPIC_API_KEY and swap the
-#      `claude_code_oauth_token` line below for
-#      `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`.
+#      Using an API key instead? Save it as ANTHROPIC_API_KEY and, in the
+#      "Claude review" step, replace the CLAUDE_CODE_OAUTH_TOKEN env line with
+#      `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}` (and its check).
 
 name: Claude review (push)
 
@@ -37,7 +36,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write   # post a comment on the pushed commit
-      id-token: write   # Claude GitHub App authentication used by the action
     steps:
       - uses: actions/checkout@v6
         with:
@@ -63,22 +61,26 @@ jobs:
           echo "Reviewing $BASE..$HEAD_SHA"
           git diff --stat "$BASE" HEAD
 
-      - name: Claude review
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Use the swift-reviewer subagent to review the changes in the commit range
-            ${{ steps.range.outputs.base }}..${{ github.sha }}
-            (branch ${{ github.ref_name }}, pushed by ${{ github.actor }}).
-            Give the subagent that exact range; do not review anything outside it.
+      # claude-code-action does not support `push` events, so Claude Code CLI
+      # runs directly in headless (-p) mode; it loads .claude/agents from the checkout.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
 
-            When the subagent returns, write its review, unchanged, to the file
-            `claude-review.md` in the repository root. Do not edit any other file,
-            do not commit and do not push.
-          claude_args: |
-            --max-turns 30
-            --allowedTools "Agent,Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+      - name: Claude review
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BASE: ${{ steps.range.outputs.base }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::Secret CLAUDE_CODE_OAUTH_TOKEN is not set"; exit 1
+          fi
+          PROMPT="Use the swift-reviewer subagent to review the changes in the commit range ${BASE}..${GITHUB_SHA} (branch ${BRANCH}). Give the subagent that exact range and do not review anything outside it. Reply with the subagent's review only, unchanged, with no preamble."
+          claude -p "$PROMPT" \
+            --max-turns 30 \
+            --allowedTools "Agent,Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*)" \
+            > claude-review.md
+          echo "--- review ---"; cat claude-review.md
 
       - name: Publish the review
         if: always()
