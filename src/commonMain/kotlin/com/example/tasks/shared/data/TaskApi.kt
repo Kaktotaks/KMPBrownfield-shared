@@ -4,6 +4,7 @@ import com.example.tasks.shared.domain.Task
 import com.example.tasks.shared.domain.TodoMapper
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
@@ -42,8 +43,14 @@ class KtorTaskApi internal constructor(
 
 internal val TasksJson = Json { ignoreUnknownKeys = true }
 
-/** HttpClient без явного engine: Ktor бере той, що є на платформі (OkHttp / Darwin, або Mock у тестах). */
-internal fun createHttpClient(): HttpClient = HttpClient {
+/**
+ * ⚡️ Engine — єдина платформна частина мережі, тому вона через expect/actual:
+ * androidMain → OkHttp, iosMain → Darwin (NSURLSession).
+ * (Явно, а не автопошуком по classpath: так передбачувано на обох платформах.)
+ */
+internal expect fun platformHttpEngine(): HttpClientEngine
+
+internal fun createHttpClient(): HttpClient = HttpClient(platformHttpEngine()) {
     expectSuccess = true // non-2xx → exception → LoadState.Error
     install(ContentNegotiation) { json(TasksJson) }
     install(HttpTimeout) {

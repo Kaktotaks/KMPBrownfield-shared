@@ -54,6 +54,9 @@ class TaskRepository(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            // Without this the cause is invisible: UI only shows "Couldn't load tasks."
+            // Android: Logcat (System.out), iOS: Xcode console.
+            println("TaskRepository: load failed: $e")
             LoadState.Error
         }
     }
