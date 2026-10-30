@@ -1,12 +1,11 @@
 # Claude review with the `swift-reviewer` subagent (.claude/agents/swift-reviewer.md).
 #
-# - Pull request (opened / new commits / reopened): reviews the WHOLE PR diff
-#   (main...branch), so the check always reflects the current state of the PR.
-#   The review is kept in one PR comment that is updated on every run.
-# - Push to a branch without an open PR: reviews only the pushed commits and
-#   comments on the pushed commit. Pushes to a branch that has an open PR are
-#   skipped here, because the pull_request run covers them.
-# - A "⛔️ не пушити" verdict fails the job, so the check turns red.
+# Runs on pull requests only (opened / new commits / reopened) and reviews the
+# WHOLE PR diff (base...branch), so the single check always reflects the current
+# state of the PR. The review is kept in one PR comment that is updated on every
+# run, and a "⛔️ не пушити" verdict fails the check (red).
+# Before pushing, run the same agent locally in Claude Code:
+#   "Use the swift-reviewer agent to check my changes before push"
 #
 # One-time setup:
 #   Run `claude setup-token` locally and save the token as the repository secret
@@ -27,81 +26,45 @@ on:
       - "README.md"
       - ".claude/agents/**"
       - ".github/workflows/claude-review.yml"
-  push:
-    branches: ["**"]
-    paths:
-      - "src/**"
-      - "**/*.gradle.kts"
-      - "gradle/**"
-      - "README.md"
-      - ".claude/agents/**"
-      - ".github/workflows/claude-review.yml"
 
-# A newer push to the same PR / branch cancels the review of the older one.
+# New commits in the same PR cancel the review of the older ones.
 concurrency:
-  group: claude-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: claude-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: ${{ !github.event.deleted }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write        # comment on the pushed commit
-      pull-requests: write   # comment in the pull request
+      contents: read
+      pull-requests: write   # post / update the review comment in the PR
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      REVIEW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Skip pushes that an open PR already covers
-        id: gate
-        if: github.event_name == 'push'
-        run: |
-          PRS=$(gh api "repos/$REPO/commits/$REVIEW_SHA/pulls" -q '[.[] | select(.state=="open")] | length' || echo 0)
-          if [ "${PRS:-0}" -gt 0 ]; then
-            echo "This branch has an open PR — the pull_request run reviews it."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v6
-        if: steps.gate.outputs.skip != 'true'
         with:
-          ref: ${{ env.REVIEW_SHA }}
-          fetch-depth: 0   # full history, so the range can be diffed
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0   # full history, so the PR range can be diffed
 
-      - name: Work out the range to review
+      - name: Work out the PR range
         id: range
-        if: steps.gate.outputs.skip != 'true'
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
-          BEFORE: ${{ github.event.before }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          if [ -n "$PR_BASE" ]; then
-            BASE=$(git merge-base "$PR_BASE" HEAD)            # whole PR
-          elif [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            BASE="$BEFORE"                                   # normal push
-          else
-            # New branch or force-push: everything since it left the default branch.
-            BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || true)
-            if [ -z "$BASE" ] || [ "$BASE" = "$(git rev-parse HEAD)" ]; then
-              BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
-            fi
-          fi
+          BASE=$(git merge-base "$PR_BASE" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
-          echo "Reviewing $BASE..$REVIEW_SHA"
+          echo "Reviewing $BASE..$HEAD_SHA"
           git diff --stat "$BASE" HEAD
 
-      # claude-code-action does not support `push` events, so Claude Code CLI
-      # runs directly in headless (-p) mode; it loads .claude/agents from the checkout.
+      # Claude Code CLI in headless (-p) mode; it loads .claude/agents from the checkout.
       - name: Install Claude Code
-        if: steps.gate.outputs.skip != 'true'
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Claude review
-        if: steps.gate.outputs.skip != 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BASE: ${{ steps.range.outputs.base }}
@@ -109,17 +72,15 @@ jobs:
           if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "::error::Secret CLAUDE_CODE_OAUTH_TOKEN is not set"; exit 1
           fi
-          PROMPT="Use the swift-reviewer subagent to review the changes in the commit range ${BASE}..${REVIEW_SHA}. Give the subagent that exact range and do not review anything outside it. Reply with the subagent's review only, unchanged, with no preamble."
+          PROMPT="Use the swift-reviewer subagent to review the changes in the commit range ${BASE}..${HEAD_SHA}. Give the subagent that exact range and do not review anything outside it. Reply with the subagent's review only, unchanged, with no preamble."
           claude -p "$PROMPT" \
             --max-turns 30 \
             --allowedTools "Agent,Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*)" \
             > claude-review.md
           echo "--- review ---"; cat claude-review.md
 
-      - name: Publish the review
-        if: always() && steps.gate.outputs.skip != 'true'
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+      - name: Publish the review in the PR
+        if: always()
         run: |
           if [ ! -s claude-review.md ]; then
             echo "No review was produced — see the Claude review step log." >> "$GITHUB_STEP_SUMMARY"
@@ -128,28 +89,23 @@ jobs:
           MARKER="<!-- claude-review -->"
           {
             echo "$MARKER"
-            echo "## 🤖 Claude review — \`${REVIEW_SHA::7}\`"
+            echo "## 🤖 Claude review — \`${HEAD_SHA::7}\`"
             echo
             cat claude-review.md
           } > comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
 
-          if [ -n "$PR_NUMBER" ]; then
-            # One comment per PR, updated on every run.
-            ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-              -q ".[] | select(.user.login==\"github-actions[bot]\" and (.body | startswith(\"$MARKER\"))) | .id" | tail -1)
-            if [ -n "$ID" ]; then
-              gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@comment.md > /dev/null
-            else
-              gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@comment.md > /dev/null
-            fi
+          # One comment per PR, updated on every run.
+          ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            -q ".[] | select(.user.login==\"github-actions[bot]\" and (.body | startswith(\"$MARKER\"))) | .id" | tail -1)
+          if [ -n "$ID" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@comment.md > /dev/null
           else
-            gh api "repos/$REPO/commits/$REVIEW_SHA/comments" -F body=@comment.md > /dev/null
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@comment.md > /dev/null
           fi
 
-      # The job (and the PR check) fails when the reviewer says "do not push".
+      # The check fails when the reviewer says "do not push".
       - name: Gate on the verdict
-        if: steps.gate.outputs.skip != 'true'
         run: |
           VERDICT=$(grep -m1 '^Вердикт:' claude-review.md || true)
           echo "$VERDICT"
