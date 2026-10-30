@@ -4,12 +4,20 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinSerialization)
+    // ⚡️ SKIE (Touchlab): компіляторний плагін, який поверх ObjC-заголовка генерує
+    // Swift-обгортки в тому ж Shared.framework. Впливає ТІЛЬКИ на iOS-framework;
+    // Android і Kotlin-код не змінюються. Що дає зі Swift:
+    //   suspend fun     → async (з підтримкою скасування, можна викликати з будь-якого потоку)
+    //   Flow/StateFlow  → AsyncSequence (for await), generic зберігається, .value типізоване
+    //   sealed class    → onEnum(of:) → exhaustive switch
+    //   enum class      → справжній Swift enum
+    alias(libs.plugins.skie)
 }
 
 // Координати бібліотеки: com.example.tasks:shared:0.2.0.
 // Зараз їх використовує composite build, пізніше — публікація в Maven.
 group = "com.example.tasks"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     compilerOptions {

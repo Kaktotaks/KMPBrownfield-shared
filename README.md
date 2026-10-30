@@ -23,7 +23,12 @@ Changes vs the native versions:
 - `TaskApi` + `KtorTaskApi` — Ktor client; engine per platform: OkHttp (androidMain), Darwin/NSURLSession (iosMain)
 - `TodoDto` (internal, kotlinx.serialization) — one copy instead of `@Serializable` + `Codable`
 - `TaskRepository` + `LoadState` — single in-memory source of truth, `StateFlow<LoadState>`
-- `iosMain/.../TaskRepository+Watch.kt` — `watchState { }` callback for Swift (raw interop, no SKIE yet)
+- iOS observes `TaskRepository.state` via SKIE: `for await state in repository.state`
+
+## SKIE (step 3)
+Plugin `co.touchlab.skie` generates Swift wrappers into `Shared.framework` (iOS only):
+`suspend` → `async` (any thread, cancellation), `Flow` → `AsyncSequence`, sealed → `onEnum(of:)`,
+Kotlin enums → Swift enums. Replaced the hand-written `watchState` callback bridge.
 
 ViewModels stay native — next steps.
 
