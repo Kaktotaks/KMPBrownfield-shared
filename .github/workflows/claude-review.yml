@@ -34,6 +34,8 @@ concurrency:
 
 jobs:
   review:
+    # PRs from forks get no secrets and a read-only token, so skip them.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -80,7 +82,7 @@ jobs:
           echo "--- review ---"; cat claude-review.md
 
       - name: Publish the review in the PR
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           if [ ! -s claude-review.md ]; then
             echo "No review was produced — see the Claude review step log." >> "$GITHUB_STEP_SUMMARY"
