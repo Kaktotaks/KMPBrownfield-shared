@@ -38,4 +38,7 @@ object TaskFilter {
         }
         return filtered.sortedWith(comparator)
     }
+
+    fun findById(tasks: List<Task>, id: Int, fallbackFirst: Boolean = false): Task =
+        tasks.firstOrNull { it.id == id } ?: if (fallbackFirst) tasks.first() else error("Task $id not found")
 }
