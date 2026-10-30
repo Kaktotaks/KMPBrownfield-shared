@@ -1,0 +1,99 @@
+# Claude review on every push.
+# Runs the `swift-reviewer` subagent (.claude/agents/swift-reviewer.md) on the commits
+# that were just pushed, then posts the review as a comment on the pushed commit
+# and in the run's Summary tab.
+#
+# One-time setup:
+#   1. Install the Claude GitHub App on this repo: https://github.com/apps/claude
+#   2. Run `claude setup-token` locally and save the token as the repository secret
+#      CLAUDE_CODE_OAUTH_TOKEN (Settings → Secrets and variables → Actions).
+#      Using an API key instead? Save it as ANTHROPIC_API_KEY and swap the
+#      `claude_code_oauth_token` line below for
+#      `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`.
+
+name: Claude review (push)
+
+on:
+  push:
+    branches: ["**"]
+    # Review only pushes that touch code, build config or public docs.
+    # Remove this block to review literally every push.
+    paths:
+      - "src/**"
+      - "**/*.gradle.kts"
+      - "gradle/**"
+      - "README.md"
+      - ".claude/agents/**"
+
+# A newer push to the same branch cancels the review of the older one.
+concurrency:
+  group: claude-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # post a comment on the pushed commit
+      id-token: write   # Claude GitHub App authentication used by the action
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # full history, so the pushed range can be diffed
+
+      - name: Work out the pushed commit range
+        id: range
+        env:
+          BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          if [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BASE="$BEFORE"                                   # normal push
+          else
+            # New branch or force-push: everything since it left the default branch.
+            BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || true)
+            if [ -z "$BASE" ] || [ "$BASE" = "$HEAD_SHA" ]; then
+              BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
+            fi
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "Reviewing $BASE..$HEAD_SHA"
+          git diff --stat "$BASE" HEAD
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Use the swift-reviewer subagent to review the changes in the commit range
+            ${{ steps.range.outputs.base }}..${{ github.sha }}
+            (branch ${{ github.ref_name }}, pushed by ${{ github.actor }}).
+            Give the subagent that exact range; do not review anything outside it.
+
+            When the subagent returns, write its review, unchanged, to the file
+            `claude-review.md` in the repository root. Do not edit any other file,
+            do not commit and do not push.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Agent,Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+
+      - name: Publish the review
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -s claude-review.md ]; then
+            echo "No review was produced — see the Claude review step log." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## 🤖 Claude review — \`${GITHUB_SHA::7}\`"
+            echo
+            cat claude-review.md
+          } > comment.md
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@comment.md > /dev/null
