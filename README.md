@@ -19,7 +19,13 @@ Changes vs the native versions:
 - `Task` is exposed to Swift as `TaskItem` (`@ObjCName`), to avoid clashing with Swift Concurrency `Task`
 - The DTO → Task mapping rule moved here as `TodoMapper`; JSON parsing stays native for now
 
-Data layer (network, repository) and ViewModels stay native — next steps.
+## Data layer (`src/commonMain/.../data`) — step 2
+- `TaskApi` + `KtorTaskApi` — Ktor client; engine per platform: OkHttp (androidMain), Darwin/NSURLSession (iosMain)
+- `TodoDto` (internal, kotlinx.serialization) — one copy instead of `@Serializable` + `Codable`
+- `TaskRepository` + `LoadState` — single in-memory source of truth, `StateFlow<LoadState>`
+- `iosMain/.../TaskRepository+Watch.kt` — `watchState { }` callback for Swift (raw interop, no SKIE yet)
+
+ViewModels stay native — next steps.
 
 ## Commands
 ```sh

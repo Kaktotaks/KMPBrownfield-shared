@@ -3,12 +3,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.kotlinSerialization)
 }
 
-// Координати бібліотеки: com.example.tasks:shared:0.1.0.
+// Координати бібліотеки: com.example.tasks:shared:0.2.0.
 // Зараз їх використовує composite build, пізніше — публікація в Maven.
 group = "com.example.tasks"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     compilerOptions {
@@ -41,12 +42,30 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // api, а не implementation: LocalDate є частиною публічного API (Task.dueDate),
-            // тому android-app має бачити kotlinx-datetime транзитивно.
+            // api, а не implementation: ці типи є частиною публічного API
+            // (Task.dueDate: LocalDate, TaskRepository.state: StateFlow),
+            // тому android-app має бачити їх транзитивно.
             api(libs.kotlinx.datetime)
+            api(libs.kotlinx.coroutines.core)
+
+            // Мережа: Ktor + kotlinx.serialization. Деталь реалізації → implementation.
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.kotlinx.serialization.json)
+        }
+        // ⚡️ Engine — єдина платформна частина мережі: OkHttp на Android, NSURLSession (Darwin) на iOS.
+        // HttpClient() сам знаходить engine, який лежить у залежностях конкретної платформи.
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
     }
 }
