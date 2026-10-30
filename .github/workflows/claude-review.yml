@@ -23,6 +23,7 @@ on:
       - "gradle/**"
       - "README.md"
       - ".claude/agents/**"
+      - ".github/workflows/claude-review.yml"
 
 # A newer push to the same branch cancels the review of the older one.
 concurrency:
