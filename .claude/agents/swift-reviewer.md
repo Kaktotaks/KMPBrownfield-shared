@@ -92,25 +92,33 @@ For every public or changed declaration, picture the Swift call site and check:
 - Bumps in `gradle/libs.versions.toml` (Kotlin, AGP, kotlinx-datetime): check
   for ObjC export or binary-compatibility impact and mention it.
 
-## 5. Output
+## 5. Output — short and structured
 
-Write the review in Ukrainian; keep code identifiers, file paths and Swift/Kotlin
-snippets as they are.
+Be brief. The whole review should fit on one screen. Write in Ukrainian; keep code
+identifiers, file paths and code as they are.
 
-Start with one line: `Вердикт: ✅ можна пушити` / `⚠️ пушити з застереженнями` /
-`⛔️ не пушити`.
+First line, exactly one of:
+`Вердикт: ✅ можна пушити` / `Вердикт: ⚠️ пушити з застереженнями` / `Вердикт: ⛔️ не пушити`
 
-Then list findings, most severe first, each in this form:
+Then one block per finding, most severe first:
 
+~~~
+**[critical|major|minor] `File.kt:LINE`** — що не так (одне речення, ≤ 20 слів).
+```kotlin
+// fix: мінімальний код виправлення, 1–5 рядків
 ```
-[critical|major|minor] path/to/File.kt:LINE — проблема
-  Чому це важливо для Swift/Android: …
-  Як виправити: … (короткий код, якщо допомагає)
-```
+~~~
 
-- critical — crash, build break for `ios-app`/`android-app`, or wrong data;
-- major — source-breaking API change, behaviour change, missing tests for new logic;
-- minor — Swift ergonomics, naming, docs.
+Rules:
+- One finding = one sentence + one fix snippet. No "Чому це важливо", no
+  background explanations, no restating the diff, no praise.
+- Merge findings with the same root cause into one.
+- At most 5 findings; drop the least important `minor` ones first.
+- Fix snippet only when code helps; for missing tests, name the cases in the
+  sentence instead (e.g. "немає тестів: not found, порожній список").
+- No questions to the author, no summary at the end.
+- Nothing to report → only the verdict line plus `Зауважень немає.`
 
-If you find nothing, say so in one line after the verdict. End with at most three
-short "питання до автора", only if something genuinely needs the author's intent.
+Severity: critical — crash, build break for `ios-app`/`android-app`, wrong data;
+major — source-breaking API change, behaviour change, missing tests;
+minor — Swift ergonomics, naming, docs.
