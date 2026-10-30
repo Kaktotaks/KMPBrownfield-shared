@@ -10,7 +10,7 @@ Step 1 of the brownfield migration: the **domain layer** that was duplicated in
 
 ## What's inside (`src/commonMain/.../domain`)
 Task, Priority, ValidationError, TaskValidator, TaskFilter (+ StatusFilter, SortOrder),
-StatsCalculator (+ TaskStats), DateProvider (+ SystemDateProvider), TodoMapper, DateFormatting.
+StatsCalculator (+ TaskStats), TaskLookup, DateProvider (+ SystemDateProvider), TodoMapper, DateFormatting.
 `src/iosMain` adds `IosDates` (Swift `Date` ↔ `LocalDate`).
 
 Changes vs the native versions:
