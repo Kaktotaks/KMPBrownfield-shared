@@ -10,8 +10,8 @@
 import PackageDescription
 import Foundation
 
-let version = "0.0.0"
-let checksum = "0000000000000000000000000000000000000000000000000000000000000000"
+let version = "0.5.0"
+let checksum = "bd9730ab875af751d57dbe874df39f3aab75dd58b861922088628b0bd7e1e84e"
 
 // ⚡️ Локальна розробка: якщо поруч з маніфестом є debug XCFramework
 // (./gradlew assembleSharedDebugXCFramework), пакет бере його замість релізного zip.
