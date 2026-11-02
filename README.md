@@ -63,6 +63,7 @@ One version (a git tag like `0.5.0`) is shipped two ways:
 ### Local development (changing shared and an app together)
 - **Android:** `-PuseLocalShared=true` (or `useLocalShared=true` in `~/.gradle/gradle.properties`) switches android-app back to `includeBuild("../shared")`.
 - **iOS:** `./gradlew assembleSharedDebugXCFramework`, then in Xcode replace the remote package with *Add Local…* → this folder. `Package.swift` picks `build/XCFrameworks/debug/Shared.xcframework` when it exists. Re-run the Gradle task after Kotlin changes.
+  - SwiftPM caches the evaluated manifest by its *contents*, so it does not notice the debug XCFramework appearing or disappearing. After switching, use Xcode → File → Packages → Reset Package Caches (CLI: `swift package dump-package --manifest-cache none`).
 
 ## Commands
 ```sh
@@ -70,5 +71,5 @@ One version (a git tag like `0.5.0`) is shipped two ways:
 ./gradlew assembleSharedDebugXCFramework        # build/XCFrameworks/debug/Shared.xcframework
 ./gradlew assembleSharedReleaseXCFramework      # what CI zips for a release
 ./gradlew publishToMavenLocal                   # try the Maven publication locally (~/.m2)
-swift package dump-package                      # validate Package.swift
+swift package dump-package --manifest-cache none # validate Package.swift (no manifest cache)
 ```

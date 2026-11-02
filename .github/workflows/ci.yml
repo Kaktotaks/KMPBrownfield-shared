@@ -38,4 +38,4 @@ jobs:
       # Димова перевірка дистрибутиву: XCFramework збирається (SKIE + library evolution)
       # і Package.swift валідний.
       - run: ./gradlew assembleSharedDebugXCFramework
-      - run: swift package dump-package > /dev/null
+      - run: swift package dump-package --manifest-cache none > /dev/null
