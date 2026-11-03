@@ -94,7 +94,7 @@ macOS); a JDK 17+ to launch Gradle (the daemon provisions JDK 21 itself via
 swift package dump-package --manifest-cache none # validate Package.swift (bypasses manifest cache)
 ```
 
-Tests live once in `src/commonTest` (34 tests: validator, filter, stats, mapping, date formatting,
+Tests live once in `src/commonTest` (35 tests: validator, filter, stats, mapping, date formatting,
 `KtorTaskApi` against Ktor `MockEngine`, `TaskRepository`, all four ViewModels with a test
 `Dispatchers.Main`) and run on both platforms.
 

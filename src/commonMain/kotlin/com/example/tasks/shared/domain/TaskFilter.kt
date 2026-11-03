@@ -9,6 +9,7 @@ enum class StatusFilter(val displayName: String) {
 enum class SortOrder(val displayName: String) {
     DUE_DATE("Sort by due date"),
     PRIORITY("Sort by priority"),
+    TITLE("Sort by title"),
 }
 
 // `object` in Swift → TaskFilter.shared.apply(tasks:query:status:sort:)
@@ -35,6 +36,8 @@ object TaskFilter {
             SortOrder.PRIORITY -> compareByDescending<Task> { it.priority.sortWeight }
                 .thenBy { it.dueDate }
                 .thenBy { it.id }
+            // Case-insensitive A→Z, ties by id.
+            SortOrder.TITLE -> compareBy<Task>({ it.title.lowercase() }, { it.id })
         }
         return filtered.sortedWith(comparator)
     }
