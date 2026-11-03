@@ -42,6 +42,11 @@ class TaskFilterTest {
     }
 
     @Test
+    fun sortByTitleIsCaseInsensitiveThenId() {
+        assertEquals(listOf(3, 1, 2, 5, 4), ids(TaskFilter.apply(tasks, sort = SortOrder.TITLE)))
+    }
+
+    @Test
     fun combinedFilters() {
         assertEquals(
             listOf(3, 5, 1),
