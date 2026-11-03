@@ -1,27 +1,27 @@
-# ⚡️ Release: одна версія → Maven-артефакт для Android + XCFramework/SPM для iOS.
+# Release: one version → Maven artifact for Android + XCFramework/SPM for iOS.
 #
-# Запуск: GitHub → Actions → Release → Run workflow → version = 0.5.0
-#   (або: gh workflow run release.yml -f version=0.5.0)
+# Run: GitHub → Actions → Release → Run workflow → version = 0.5.0
+#   (or: gh workflow run release.yml -f version=0.5.0)
 #
-# Порядок кроків — це і є "commit-after-build" варіанту A:
-#   1. тести
-#   2. збірка Shared.xcframework → zip → checksum
-#   3. Package.swift ← version + checksum → коміт у main → тег 0.5.0 → push
-#   4. GitHub Release 0.5.0 з zip (URL з Package.swift стає живим)
-#   5. Maven publish 0.5.0 у GitHub Packages
-# Тег ставиться на коміт з ОНОВЛЕНИМ Package.swift, тому SPM за тегом 0.5.0
-# отримує маніфест, що вказує саме на цей zip.
+# The step order implements "commit after build":
+#   1. tests
+#   2. build Shared.xcframework → zip → checksum
+#   3. Package.swift ← version + checksum → commit to main → tag 0.5.0 → push
+#   4. GitHub Release 0.5.0 with the zip (the URL in Package.swift becomes live)
+#   5. Maven publish 0.5.0 to GitHub Packages
+# The tag points at the commit with the UPDATED Package.swift, so SPM resolving tag 0.5.0
+# gets a manifest that references exactly this zip.
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Semver без префікса v, напр. 0.5.0"
+        description: "Semver without a v prefix, e.g. 0.5.0"
         required: true
 
 permissions:
-  contents: write   # коміт + тег + GitHub Release
+  contents: write   # commit + tag + GitHub Release
   packages: write   # GitHub Packages (Maven)
 
 concurrency:
@@ -58,7 +58,7 @@ jobs:
       - name: Build XCFramework
         run: ./gradlew assembleSharedReleaseXCFramework -PsharedVersion="$VERSION"
 
-      # ditto (не zip): зберігає симлінки й структуру .framework, як очікує SPM.
+      # ditto (not zip): keeps symlinks and the .framework layout SPM expects.
       - name: Zip + checksum
         run: |
           ditto -c -k --sequesterRsrc --keepParent \

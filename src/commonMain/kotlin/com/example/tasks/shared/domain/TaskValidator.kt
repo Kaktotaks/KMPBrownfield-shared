@@ -8,8 +8,8 @@ class TaskValidator(private val dateProvider: DateProvider) {
      * Returns errors in spec order. [originalDueDate] is non-null only when editing an existing task:
      * an unchanged (possibly overdue) due date is then allowed.
      *
-     * ⚡️ Default-аргументи не експортуються в ObjC/Swift: зі Swift треба передавати
-     * originalDueDate явно (nil для нової задачі).
+     * Default arguments are not exported to ObjC/Swift: Swift must pass originalDueDate
+     * explicitly (nil for a new task).
      */
     fun validate(
         title: String,

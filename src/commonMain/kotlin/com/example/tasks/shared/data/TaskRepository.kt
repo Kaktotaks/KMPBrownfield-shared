@@ -10,9 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.datetime.LocalDate
 
-// ⚡️ sealed interface у "сирому" ObjC — три окремі класи LoadStateLoading / LoadStateError /
-// LoadStateLoaded, без exhaustive switch. SKIE додає `onEnum(of: state)` → Swift enum
-// з кейсами .loading / .error / .loaded(LoadStateLoaded) — switch стає exhaustive.
+// In plain ObjC export a sealed interface is three unrelated classes (LoadStateLoading /
+// LoadStateError / LoadStateLoaded) with no exhaustive switch. SKIE adds `onEnum(of: state)`,
+// a Swift enum with .loading / .error / .loaded(LoadStateLoaded), so the switch is exhaustive.
 sealed interface LoadState {
     data object Loading : LoadState
     data object Error : LoadState
@@ -31,8 +31,8 @@ class TaskRepository(
 
     /**
      * Kotlin/Android: `state.collect { }`.
-     * ⚡️ Swift (через SKIE): `for await state in repository.state { }`, `repository.state.value`.
-     * Без SKIE generic губився (value: Any?) і потрібен був callback-міст watchState.
+     * Swift (via SKIE): `for await state in repository.state { }`, `repository.state.value`.
+     * Without SKIE the generic type is erased (`value: Any?`) and a callback bridge would be needed.
      */
     val state: StateFlow<LoadState> = _state.asStateFlow()
 
@@ -44,8 +44,8 @@ class TaskRepository(
 
     /**
      * Loads tasks from the network.
-     * ⚡️ У Swift (SKIE): `try await repository.load()` — з будь-якого потоку, скасування Swift Task
-     * скасовує корутину. Без SKIE: старт лише з main thread і скасування не доходило до Kotlin.
+     * Swift (via SKIE): `try await repository.load()` from any thread; cancelling the Swift Task
+     * cancels the coroutine. (Plain ObjC export: main-thread start only, no cancellation.)
      */
     suspend fun load() {
         _state.value = LoadState.Loading

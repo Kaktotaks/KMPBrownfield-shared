@@ -12,23 +12,23 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 
-/** Source of tasks. Interface → можна підмінити фейком у тестах (і зі Swift, і з Kotlin). */
+/** Source of tasks. An interface so tests can substitute a fake (from Kotlin and from Swift). */
 interface TaskApi {
     /** Fetches todos and maps them to domain tasks using the spec rule (TodoMapper). */
     suspend fun fetchTasks(today: LocalDate): List<Task>
 }
 
 /**
- * ⚡️ Ktor замінює дві реалізації: HttpURLConnection (Android) і URLSession (iOS).
- * Сам HTTP-код спільний; платформним лишається тільки engine
- * (OkHttp / Darwin), який підтягується з androidMain / iosMain залежностей.
+ * Ktor replaces two native implementations: HttpURLConnection (Android) and URLSession (iOS).
+ * The HTTP code is common; only the engine is platform-specific, provided by the
+ * expect/actual [platformHttpEngine] (OkHttp in androidMain, Darwin in iosMain).
  */
 class KtorTaskApi internal constructor(
     private val client: HttpClient,
     private val endpoint: String,
 ) : TaskApi {
 
-    // Публічний конструктор без параметрів — зручний і для Kotlin, і для Swift (KtorTaskApi()).
+    // Public no-arg constructor: convenient from Kotlin and Swift (`KtorTaskApi()`).
     constructor() : this(createHttpClient(), DEFAULT_ENDPOINT)
 
     override suspend fun fetchTasks(today: LocalDate): List<Task> =
@@ -44,9 +44,9 @@ class KtorTaskApi internal constructor(
 internal val TasksJson = Json { ignoreUnknownKeys = true }
 
 /**
- * ⚡️ Engine — єдина платформна частина мережі, тому вона через expect/actual:
+ * The engine is the only platform-specific part of networking, hence expect/actual:
  * androidMain → OkHttp, iosMain → Darwin (NSURLSession).
- * (Явно, а не автопошуком по classpath: так передбачувано на обох платформах.)
+ * Chosen explicitly rather than by classpath discovery, so it is predictable on both platforms.
  */
 internal expect fun platformHttpEngine(): HttpClientEngine
 

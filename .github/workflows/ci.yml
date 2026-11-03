@@ -1,6 +1,6 @@
-# ⚡️ CI: перевіряє shared на кожному PR і push у main.
-# macOS-раннер, бо iOS-тести (iosSimulatorArm64Test) і Kotlin/Native для Apple
-# збираються лише на macOS. Для публічного репозиторію хвилини безкоштовні.
+# CI: checks shared on every PR and push to main.
+# macOS runner, because the iOS tests (iosSimulatorArm64Test) and Kotlin/Native for Apple
+# targets only build on macOS. Minutes are free for public repositories.
 name: CI
 
 on:
@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "Package.swift"   # коміт release-бота змінює лише маніфест
+      - "Package.swift"   # the release bot commit only changes the manifest
       - "README.md"
 
 concurrency:
@@ -22,20 +22,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Gradle daemon сам завантажить AZUL 21 (gradle/gradle-daemon-jvm.properties),
-      # але launcher-у теж потрібна JDK — ставимо ту саму, щоб не качати двічі.
+      # The Gradle daemon provisions JDK 21 itself (gradle/gradle-daemon-jvm.properties),
+      # but the launcher needs a JDK too: install the same one so it isn't downloaded twice.
       - uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: 21
 
-      # Кеш Gradle (залежності, Kotlin/Native toolchain ~/.konan) між запусками.
+      # Caches Gradle dependencies and the Kotlin/Native toolchain (~/.konan) between runs.
       - uses: gradle/actions/setup-gradle@v5
 
-      # Android host-тести + iOS-тести на симуляторі.
+      # Android host tests + iOS simulator tests.
       - run: ./gradlew allTests
 
-      # Димова перевірка дистрибутиву: XCFramework збирається (SKIE + library evolution)
-      # і Package.swift валідний.
+      # Distribution smoke check: the XCFramework builds (SKIE + library evolution)
+      # and Package.swift is valid.
       - run: ./gradlew assembleSharedDebugXCFramework
       - run: swift package dump-package --manifest-cache none > /dev/null

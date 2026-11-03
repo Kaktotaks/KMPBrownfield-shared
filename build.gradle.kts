@@ -5,33 +5,33 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinSerialization)
-    // ⚡️ SKIE (Touchlab): компіляторний плагін, який поверх ObjC-заголовка генерує
-    // Swift-обгортки в тому ж Shared.framework. Впливає ТІЛЬКИ на iOS-framework;
-    // Android і Kotlin-код не змінюються. Що дає зі Swift:
-    //   suspend fun     → async (з підтримкою скасування, можна викликати з будь-якого потоку)
-    //   Flow/StateFlow  → AsyncSequence (for await), generic зберігається, .value типізоване
+    // SKIE (Touchlab): compiler plugin that generates Swift wrappers on top of the ObjC header,
+    // inside the same Shared framework. Affects the iOS framework only; Android and Kotlin code
+    // are unchanged. What Swift gets:
+    //   suspend fun     → async (cancellable, callable from any thread)
+    //   Flow/StateFlow  → typed AsyncSequence (for await), typed .value
     //   sealed class    → onEnum(of:) → exhaustive switch
-    //   enum class      → справжній Swift enum
+    //   enum class      → real Swift enum
     alias(libs.plugins.skie)
-    // ⚡️ Публікація в Maven (GitHub Packages) для android-app. KMP-плагін сам створює
-    // публікації: shared (root, Gradle module metadata) + shared-android + shared-iosarm64 + ...
+    // Maven publishing (GitHub Packages) for android-app. The KMP plugin creates the publications:
+    // shared (root, Gradle module metadata) + shared-android + shared-iosarm64 + ...
     `maven-publish`
 }
 
-// Координати бібліотеки: com.example.tasks:shared:<version>.
-// ⚡️ Джерело правди для версії — git-тег. Release workflow передає -PsharedVersion=0.5.0;
-// локально (composite build / debug XCFramework) версія не важлива, тому "0.0.0-local".
+// Coordinates: com.example.tasks:shared:<version>.
+// The git tag is the source of truth for the version: release.yml passes -PsharedVersion=X.Y.Z.
+// Locally (composite build / debug XCFramework) the version doesn't matter, hence "0.0.0-local".
 group = "com.example.tasks"
 version = providers.gradleProperty("sharedVersion").getOrElse("0.0.0-local")
 
 kotlin {
     compilerOptions {
-        // kotlin.time.Clock (через kotlinx-datetime todayIn) і @ObjCName поки під opt-in.
+        // kotlin.time.Clock (used via kotlinx-datetime todayIn) and @ObjCName still require opt-in.
         optIn.add("kotlin.time.ExperimentalTime")
         optIn.add("kotlin.experimental.ExperimentalObjCName")
     }
 
-    // Android: звичайна Kotlin/JVM-бібліотека (AAR) для android-app.
+    // Android: a regular Android library (AAR) for android-app.
     android {
         namespace = "com.example.tasks.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -42,10 +42,10 @@ kotlin {
         withHostTest {}
     }
 
-    // iOS: Kotlin/Native → Shared.framework.
-    // ⚡️ XCFramework("Shared") збирає ОДИН контейнер з усіма iOS-слайсами (device + simulator):
+    // iOS: Kotlin/Native → static Shared.framework per slice.
+    // XCFramework("Shared") bundles all iOS slices (device + simulator) into one container:
     //   ./gradlew assembleSharedReleaseXCFramework → build/XCFrameworks/release/Shared.xcframework
-    // CI пакує його в zip, кладе в GitHub Release, а Package.swift посилається на цей zip.
+    // CI zips it into a GitHub Release; Package.swift points at that zip.
     val xcFramework = XCFramework("Shared")
     listOf(
         iosArm64(),
@@ -60,23 +60,24 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // api, а не implementation: ці типи є частиною публічного API
+            // api, not implementation: these types are part of the public API
             // (Task.dueDate: LocalDate, TaskRepository.state: StateFlow),
-            // тому android-app має бачити їх транзитивно.
+            // so android-app must see them transitively.
             api(libs.kotlinx.datetime)
             api(libs.kotlinx.coroutines.core)
-            // ⚡️ Google androidx ViewModel — мультиплатформний (є iosArm64/iosSimulatorArm64).
-            // api: Android-застосунок використовує ці VM як звичайні androidx ViewModel.
+            // androidx ViewModel is multiplatform (has iosArm64/iosSimulatorArm64 variants).
+            // api: android-app uses the shared VMs as regular androidx ViewModels.
             api(libs.androidx.lifecycle.viewmodel)
 
-            // Мережа: Ktor + kotlinx.serialization. Деталь реалізації → implementation.
+            // Networking: Ktor + kotlinx.serialization. Implementation detail → implementation.
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
         }
-        // ⚡️ Engine — єдина платформна частина мережі: OkHttp на Android, NSURLSession (Darwin) на iOS.
-        // HttpClient() сам знаходить engine, який лежить у залежностях конкретної платформи.
+        // The engine is the only platform-specific part of networking: OkHttp on Android,
+        // Darwin (NSURLSession) on iOS. It is picked explicitly via expect/actual
+        // platformHttpEngine() (data/HttpEngine.*.kt), not by classpath discovery.
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
         }
@@ -91,22 +92,47 @@ kotlin {
     }
 }
 
-// ⚡️ SKIE + бінарна дистрибуція. XCFramework, зібраний на CI одним Xcode, підключається
-// застосунком, який збирається ІНШИМ Xcode. Без library evolution Swift-частина SKIE
-// (.swiftmodule) прив'язана до конкретної версії компілятора → "module compiled with Swift X
-// cannot be imported by Swift Y". produceDistributableFramework() вмикає library evolution
-// (.swiftinterface замість бінарного .swiftmodule) + relative paths у debug-символах.
+// SKIE + binary distribution: the XCFramework is built on CI with one Xcode and consumed by an app
+// built with another. Without library evolution SKIE's Swift part (.swiftmodule) is tied to one
+// compiler version ("module compiled with Swift X cannot be imported by Swift Y").
+// produceDistributableFramework() enables library evolution (.swiftinterface instead of a binary
+// .swiftmodule) and relative paths in debug symbols.
 skie {
     build {
         produceDistributableFramework()
     }
 }
 
-// ⚡️ Куди публікується Maven-артефакт. GitHub Packages прив'язаний до репозиторію.
-// credentials(PasswordCredentials::class) читає Gradle-властивості
-// GitHubPackagesUsername / GitHubPackagesPassword (на CI — через env
-// ORG_GRADLE_PROJECT_GitHubPackagesUsername/Password), тож токен не потрапляє в код.
+// Maven repository: GitHub Packages of this GitHub repo.
+// credentials(PasswordCredentials::class) reads the Gradle properties
+// GitHubPackagesUsername / GitHubPackagesPassword (on CI via the env vars
+// ORG_GRADLE_PROJECT_GitHubPackagesUsername/Password), so no token lives in the code.
 publishing {
+    // POM metadata only (shown on GitHub Packages / used by tooling); no effect on the build.
+    publications.withType<MavenPublication>().configureEach {
+        pom {
+            name.set("KMPBrownfield shared")
+            description.set("Kotlin Multiplatform domain, data and presentation layers shared by the Tasks Android and iOS apps.")
+            url.set("https://github.com/Kaktotaks/KMPBrownfield-shared")
+            licenses {
+                license {
+                    name.set("MIT License")
+                    url.set("https://opensource.org/licenses/MIT")
+                }
+            }
+            developers {
+                developer {
+                    id.set("Kaktotaks")
+                    name.set("Leonid Shevchenko")
+                }
+            }
+            scm {
+                url.set("https://github.com/Kaktotaks/KMPBrownfield-shared")
+                connection.set("scm:git:https://github.com/Kaktotaks/KMPBrownfield-shared.git")
+                developerConnection.set("scm:git:ssh://git@github.com/Kaktotaks/KMPBrownfield-shared.git")
+            }
+        }
+    }
     repositories {
         maven {
             name = "GitHubPackages"

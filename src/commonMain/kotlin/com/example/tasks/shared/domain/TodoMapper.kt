@@ -4,9 +4,9 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 
-// ⚡️ Новий спільний шматок: правило мапінгу з SPEC.md раніше було продубльоване
-// у TodoDto.toTask (Android) і TodoDto+mapping (iOS). Парсинг JSON поки лишається
-// нативним у кожному застосунку, а саме бізнес-правило — тут.
+// The DTO → Task mapping rule from the spec, previously duplicated in TodoDto.toTask (Android)
+// and TodoDto+mapping (iOS). JSON parsing is shared too (TodoDto + KtorTaskApi in data/);
+// this object holds just the business rule.
 object TodoMapper {
 
     private val priorityByIndex = listOf(Priority.LOW, Priority.MEDIUM, Priority.HIGH)

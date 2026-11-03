@@ -3,7 +3,7 @@
 # Runs on pull requests only (opened / new commits / reopened) and reviews the
 # WHOLE PR diff (base...branch), so the single check always reflects the current
 # state of the PR. The review is kept in one PR comment that is updated on every
-# run, and a "⛔️ не пушити" verdict fails the check (red).
+# run, and a "Verdict: ⛔️ do not push" line fails the check (red).
 # Before pushing, run the same agent locally in Claude Code:
 #   "Use the swift-reviewer agent to check my changes before push"
 #
@@ -109,7 +109,7 @@ jobs:
       # The check fails when the reviewer says "do not push".
       - name: Gate on the verdict
         run: |
-          VERDICT=$(grep -m1 '^Вердикт:' claude-review.md || true)
+          VERDICT=$(grep -m1 '^Verdict:' claude-review.md || true)
           echo "$VERDICT"
           case "$VERDICT" in
             *⛔*) echo "::error::Claude review: $VERDICT"; exit 1 ;;

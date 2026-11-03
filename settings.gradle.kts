@@ -1,6 +1,6 @@
-// ⚡️ Окремий самостійний Gradle-білд. Ім'я root-проєкту = artifactId,
-// тому Android підключає його як "com.example.tasks:shared" (див. group у build.gradle.kts),
-// а composite build (includeBuild("../shared")) підміняє ці координати на вихідний код.
+// Standalone Gradle build. The root project name is the artifactId, so Android consumes it as
+// "com.example.tasks:shared" (see group in build.gradle.kts), and a composite build
+// (includeBuild("../shared")) substitutes those coordinates with the sources.
 rootProject.name = "shared"
 
 pluginManagement {

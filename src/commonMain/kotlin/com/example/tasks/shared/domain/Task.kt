@@ -3,12 +3,11 @@ package com.example.tasks.shared.domain
 import kotlinx.datetime.LocalDate
 import kotlin.native.ObjCName
 
-// ⚡️ java.time.LocalDate → kotlinx.datetime.LocalDate: java.time існує тільки на JVM,
-// а commonMain компілюється ще й у Kotlin/Native для iOS.
+// java.time.LocalDate → kotlinx.datetime.LocalDate: java.time is JVM-only, while commonMain
+// is also compiled with Kotlin/Native for iOS.
 //
-// ⚡️ @ObjCName: у Swift ім'я `Task` конфліктує зі Swift Concurrency `Task`
-// ("'Task' is ambiguous for type lookup"). Для Kotlin/Android клас лишається `Task`,
-// а в Swift він приходить як `TaskItem`.
+// @ObjCName: in Swift the name `Task` clashes with Swift Concurrency's `Task`
+// ("'Task' is ambiguous for type lookup"). Kotlin/Android keeps `Task`; Swift sees `TaskItem`.
 @ObjCName(swiftName = "TaskItem")
 data class Task(
     val id: Int,

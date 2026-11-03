@@ -8,9 +8,9 @@ import platform.Foundation.NSCalendarUnitYear
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateComponents
 
-// ⚡️ Міст між Swift `Date` і Kotlin `LocalDate`. Тільки в iosMain: тут доступний Foundation.
-// У Swift: IosDates.shared.toLocalDate(date: Date()) і IosDates.shared.toDate(localDate: ...)
-// (Swift Date ↔ NSDate бріджиться автоматично).
+// Bridge between Swift `Date` and Kotlin `LocalDate`. iosMain only, where Foundation is available.
+// Swift: IosDates.shared.toLocalDate(date: Date()) and IosDates.shared.toDate(localDate: ...)
+// (Swift Date ↔ NSDate is bridged automatically).
 object IosDates {
 
     /** Calendar day of [date] in the current calendar/time zone. */

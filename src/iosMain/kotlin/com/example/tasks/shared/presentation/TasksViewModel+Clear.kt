@@ -3,12 +3,12 @@ package com.example.tasks.shared.presentation
 import androidx.lifecycle.ViewModelStore
 
 /**
- * ⚡️ iOS-only: ручне знищення ViewModel.
- * На Android ViewModelStore належить Activity/NavBackStackEntry і чиститься сам.
- * На iOS власника немає, тому Swift-обгортка викликає `viewModel.clear()` у deinit.
- * ViewModelStore.clear() викликає внутрішній ViewModel.clear(): скасовує viewModelScope
- * (а з ним stateIn/combine-підписки на repository.state) і викликає onCleared().
- * Extension на наш клас → у Swift це звичайний метод: `viewModel.clear()`.
+ * iOS only: destroys the ViewModel explicitly.
+ * On Android the ViewModelStore belongs to an Activity/NavBackStackEntry and is cleared for us.
+ * iOS has no owner, so the Swift wrapper calls `viewModel.clear()` in deinit.
+ * ViewModelStore.clear() calls the internal ViewModel.clear(): cancels viewModelScope (and with it
+ * the stateIn/combine subscriptions to repository.state) and calls onCleared().
+ * An extension on our class, so Swift sees a plain method: `viewModel.clear()`.
  */
 fun TasksViewModel.clear() {
     val store = ViewModelStore()

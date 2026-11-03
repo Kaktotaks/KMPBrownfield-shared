@@ -18,8 +18,8 @@ data class TaskDetailUiState(
 )
 
 /**
- * ⚡️ taskId приходить параметром конструктора, а не через SavedStateHandle:
- * на Android його дістає з route фабрика в застосунку, на iOS передає SwiftUI-екран.
+ * taskId is a constructor parameter, not read from SavedStateHandle (Android-only):
+ * on Android the app's factory reads it from the route, on iOS the Swift side passes it in.
  */
 class TaskDetailViewModel(
     val taskId: Int,

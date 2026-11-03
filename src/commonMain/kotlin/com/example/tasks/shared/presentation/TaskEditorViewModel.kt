@@ -27,7 +27,7 @@ data class TaskEditorUiState(
 /**
  * New / Edit task form with live validation.
  * [taskId] == [NEW_TASK_ID] → "New Task".
- * ⚡️ Не `Int?`: nullable Int у Swift — це KotlinInt? (boxing), тому константа зручніша з обох боків.
+ * Not `Int?`: a nullable Int is a boxed `KotlinInt?` in Swift, so a sentinel constant is nicer on both sides.
  */
 class TaskEditorViewModel(
     taskId: Int,

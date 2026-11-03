@@ -5,8 +5,8 @@ import kotlinx.datetime.format.MonthNames
 import kotlinx.datetime.format.Padding
 import kotlinx.datetime.format.char
 
-// "d MMM yyyy" (англійські назви місяців), напр. "29 Oct 2026".
-// Один формат на обидві платформи замість DateTimeFormatter (Android) і DateFormatter (iOS).
+// "d MMM yyyy" with English month names, e.g. "29 Oct 2026".
+// One format for both platforms instead of DateTimeFormatter (Android) and DateFormatter (iOS).
 object DateFormatting {
     private val format = LocalDate.Format {
         day(padding = Padding.NONE)

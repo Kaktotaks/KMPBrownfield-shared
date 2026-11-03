@@ -11,7 +11,7 @@ enum class SortOrder(val displayName: String) {
     PRIORITY("Sort by priority"),
 }
 
-// `object` у Swift → TaskFilter.shared.apply(tasks:query:status:sort:)
+// `object` in Swift → TaskFilter.shared.apply(tasks:query:status:sort:)
 object TaskFilter {
 
     fun apply(

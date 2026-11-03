@@ -13,7 +13,7 @@ data class TaskStats(
     val overdue: Int,
 ) {
     companion object {
-        // У Swift: TaskStats.companion.EMPTY
+        // Swift: TaskStats.companion.EMPTY
         val EMPTY = TaskStats(0, 0, 0, 0, 0, 0, 0, 0)
     }
 }
