@@ -10,8 +10,8 @@
 import PackageDescription
 import Foundation
 
-let version = "0.5.0"
-let checksum = "bd9730ab875af751d57dbe874df39f3aab75dd58b861922088628b0bd7e1e84e"
+let version = "0.6.0"
+let checksum = "c2f8760b5da84911175c69e9069907a974cb378f731ed60fdac95beba30fb3c9"
 
 // Local development: if a debug XCFramework exists next to the manifest
 // (./gradlew assembleSharedDebugXCFramework), the package uses it instead of the release zip.
