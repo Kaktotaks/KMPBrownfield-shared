@@ -24,7 +24,9 @@ let package = Package(
     name: "Shared",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "Shared", targets: ["Shared"]),
+        // "SharedLinkage" is bundled into the product only to carry the sqlite3 linker flag
+        // (see the comment on that target below).
+        .library(name: "Shared", targets: ["Shared", "SharedLinkage"]),
     ],
     targets: [
         useLocalBuild
@@ -34,5 +36,15 @@ let package = Package(
                 url: "https://github.com/Kaktotaks/KMPBrownfield-shared/releases/download/\(version)/Shared.xcframework.zip",
                 checksum: checksum
             ),
+        // Why this exists: the Kotlin framework is STATIC, and a static framework does not carry
+        // linker flags. SQLDelight's NativeSqliteDriver needs the system SQLite, so the app would
+        // fail to link ("Undefined symbols: _sqlite3_open_v2 ..."). A binaryTarget cannot declare
+        // linkerSettings either, so this empty Swift target does it: SwiftPM propagates its
+        // linkerSettings to whatever links the "Shared" product.
+        .target(
+            name: "SharedLinkage",
+            path: "Sources/SharedLinkage",
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
     ]
 )
