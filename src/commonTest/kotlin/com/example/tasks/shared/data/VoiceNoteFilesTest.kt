@@ -60,4 +60,15 @@ class VoiceNoteFilesTest {
         assertEquals("2:00", VoiceNoteFormat.duration(120_000))
         assertEquals("0:00", VoiceNoteFormat.duration(-5))
     }
+
+    @Test
+    fun remainingFormatRoundsUp() {
+        assertEquals("0:09", VoiceNoteFormat.remaining(9_000))
+        assertEquals("0:09", VoiceNoteFormat.remaining(8_001))
+        assertEquals("0:08", VoiceNoteFormat.remaining(8_000))
+        assertEquals("0:01", VoiceNoteFormat.remaining(1))
+        assertEquals("0:00", VoiceNoteFormat.remaining(0))
+        assertEquals("0:00", VoiceNoteFormat.remaining(-5))
+        assertEquals("2:00", VoiceNoteFormat.remaining(120_000))
+    }
 }

@@ -34,4 +34,10 @@ object VoiceNoteFormat {
         val seconds = (totalSeconds % 60).toString().padStart(2, '0')
         return "${totalSeconds / 60}:$seconds"
     }
+
+    /** `m:ss`, seconds rounded UP: 9_000 → "0:09", 8_001 → "0:09", 8_000 → "0:08". Negative → "0:00". */
+    fun remaining(ms: Long): String {
+        val clamped = ms.coerceAtLeast(0)
+        return duration((clamped + 999) / 1000 * 1000)
+    }
 }
