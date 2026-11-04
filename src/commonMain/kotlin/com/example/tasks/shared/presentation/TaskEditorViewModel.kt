@@ -23,13 +23,13 @@ data class TaskEditorUiState(
     /** The voice note as edited so far; committed by [TaskEditorViewModel.save], dropped by [TaskEditorViewModel.onCancel]. */
     val voiceNote: VoiceNote? = null,
 ) {
-    val screenTitle: String get() = if (isNew) "New Task" else "Edit Task"
+    val screenTitle: String get() = if (isNew) "New task" else "Edit task"
     val canSave: Boolean get() = errors.isEmpty()
 }
 
 /**
  * New / Edit task form with live validation.
- * [taskId] == [NEW_TASK_ID] → "New Task".
+ * [taskId] == [NEW_TASK_ID] → "New task".
  * Not `Int?`: a nullable Int is a boxed `KotlinInt?` in Swift, so a sentinel constant is nicer on both sides.
  */
 class TaskEditorViewModel(
