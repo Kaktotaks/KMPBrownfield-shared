@@ -504,7 +504,7 @@ class VoiceNoteViewModel(
         playbackJob = null
         if (prepared) {
             runCatching { player.pause() }
-            runCatching { player.release() }
+            runCatching { player.dispose() }
         }
         prepared = false
         preparedDurationMs = 0

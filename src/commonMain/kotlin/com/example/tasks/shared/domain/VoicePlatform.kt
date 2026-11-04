@@ -44,7 +44,8 @@ interface AudioPlayer {
 
     fun positionMs(): Long
     fun isPlaying(): Boolean
-    fun release()
+    /** Frees the native player (named dispose, not release: `release` collides with NSObject.release in Swift). */
+    fun dispose()
 
     /** Set by shared; the platform calls it (any thread) when playback reaches the end. */
     var onCompletion: (() -> Unit)?

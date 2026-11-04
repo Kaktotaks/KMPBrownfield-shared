@@ -43,7 +43,7 @@ class FakePlayer : AudioPlayer {
     var prepares = mutableListOf<String>()
     var plays = 0
     var pauses = 0
-    var releases = 0
+    var disposals = 0
     var position = 0L
     var playing = false
     var speeds = mutableListOf<Float>()
@@ -63,7 +63,7 @@ class FakePlayer : AudioPlayer {
     override fun setSpeed(speed: Float) { speeds += speed }
     override fun positionMs(): Long = position
     override fun isPlaying(): Boolean = playing
-    override fun release() { releases++; playing = false }
+    override fun dispose() { disposals++; playing = false }
 
     /** The platform reports the end of the clip. */
     fun finish() {

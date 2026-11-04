@@ -397,7 +397,7 @@ class VoiceNoteViewModelTest : ViewModelTest() {
         e.vm.onPlayPause()
         e.vm.onReRecordTapped()
         e.vm.onConfirm()
-        assertEquals(1, player.releases)
+        assertEquals(1, player.disposals)
         assertFalse(player.playing)
         advance(2_000)
         e.vm.onStop()
