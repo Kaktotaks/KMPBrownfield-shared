@@ -50,6 +50,9 @@ How the code got here: [`docs/MIGRATION.md`](docs/MIGRATION.md) (brownfield migr
   (`expect`/`actual`), `VoiceNoteFiles`.
   The HTTP engine is chosen with `expect`/`actual` `platformHttpEngine()`: OkHttp on Android,
   Darwin (NSURLSession) on iOS.
+- **motion** (`...shared.motion`): `MotionSpec` (`emphasized` easing, `Splash` timeline constants,
+  `frameAt` / `exitStartMs`), `CubicBezier`, `SpringParams`, `SplashFrame`. Pure functions of time
+  that both apps draw for the animated splash. Swift API: [`docs/motion-spec-swift-api.md`](docs/motion-spec-swift-api.md).
 - **presentation** (`...shared.presentation`): `TaskListViewModel`, `TaskDetailViewModel(taskId)`,
   `TaskEditorViewModel(taskId | NEW_TASK_ID)`, `StatsViewModel`, `VoiceNoteViewModel`, all extending `TasksViewModel`
   (multiplatform `androidx.lifecycle.ViewModel`). Each exposes `uiState: StateFlow<...>` plus event
