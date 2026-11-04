@@ -16,7 +16,21 @@ data class Task(
     val priority: Priority,
     val dueDate: LocalDate,
     val isDone: Boolean,
+    val voiceNote: VoiceNote? = null,
 ) {
+    // Source compatibility for Swift (defaults are not exported to ObjC): the pre-0.7 initializer.
+    constructor(
+        id: Int,
+        title: String,
+        notes: String,
+        priority: Priority,
+        dueDate: LocalDate,
+        isDone: Boolean,
+    ) : this(id, title, notes, priority, dueDate, isDone, null)
+
+    /** "0:42" for the list indicator; null when there is no voice note. */
+    val voiceDurationText: String? get() = voiceNote?.durationText
+
     /** Overdue: not done and due date strictly before today. */
     fun isOverdue(today: LocalDate): Boolean = !isDone && dueDate < today
 }
