@@ -1,0 +1,66 @@
+-- Schema version 1. Migrations go next to this folder's root as N.sqm (e.g. 1.sqm in 0.8.0).
+-- Voice notes: only the file NAME is stored (relative to the voice-notes directory); the
+-- absolute path changes between iOS installs.
+
+CREATE TABLE TaskEntity (
+    id INTEGER NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    notes TEXT NOT NULL,
+    priority TEXT NOT NULL,            -- Priority.name
+    due_date TEXT NOT NULL,            -- ISO yyyy-MM-dd (LocalDate.toString())
+    is_done INTEGER NOT NULL DEFAULT 0,
+    voice_file TEXT,                   -- file NAME only
+    voice_duration_ms INTEGER,
+    voice_waveform TEXT                -- 40 comma-separated floats 0..1, 3 decimals
+);
+
+CREATE TABLE Meta (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL                -- 'seeded' = '1'
+);
+
+selectAll:
+SELECT * FROM TaskEntity ORDER BY id;
+
+selectById:
+SELECT * FROM TaskEntity WHERE id = ?;
+
+insert:
+INSERT INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Used by the first-launch seed: an id the user already took locally is kept (API row skipped).
+insertOrIgnore:
+INSERT OR IGNORE INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Voice columns are written only by setVoiceNote / clearVoiceNote, never by update.
+update:
+UPDATE TaskEntity SET title = ?, notes = ?, priority = ?, due_date = ?, is_done = ? WHERE id = ?;
+
+setDone:
+UPDATE TaskEntity SET is_done = ? WHERE id = ?;
+
+delete:
+DELETE FROM TaskEntity WHERE id = ?;
+
+setVoiceNote:
+UPDATE TaskEntity SET voice_file = ?, voice_duration_ms = ?, voice_waveform = ? WHERE id = ?;
+
+clearVoiceNote:
+UPDATE TaskEntity SET voice_file = NULL, voice_duration_ms = NULL, voice_waveform = NULL WHERE id = ?;
+
+maxId:
+SELECT COALESCE(MAX(id), 0) FROM TaskEntity;
+
+voiceFileOf:
+SELECT voice_file FROM TaskEntity WHERE id = ?;
+
+allVoiceFiles:
+SELECT voice_file FROM TaskEntity WHERE voice_file IS NOT NULL;
+
+getMeta:
+SELECT value FROM Meta WHERE key = ?;
+
+setMeta:
+INSERT OR REPLACE INTO Meta(key, value) VALUES (?, ?);

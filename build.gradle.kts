@@ -13,6 +13,8 @@ plugins {
     //   sealed class    → onEnum(of:) → exhaustive switch
     //   enum class      → real Swift enum
     alias(libs.plugins.skie)
+    // SQLDelight: generates the typed TasksDatabase API from src/commonMain/sqldelight/**.sq.
+    alias(libs.plugins.sqldelight)
     // Maven publishing (GitHub Packages) for android-app. The KMP plugin creates the publications:
     // shared (root, Gradle module metadata) + shared-android + shared-iosarm64 + ...
     `maven-publish`
@@ -29,6 +31,9 @@ kotlin {
         // kotlin.time.Clock (used via kotlinx-datetime todayIn) and @ObjCName still require opt-in.
         optIn.add("kotlin.time.ExperimentalTime")
         optIn.add("kotlin.experimental.ExperimentalObjCName")
+        optIn.add("kotlin.uuid.ExperimentalUuidApi")
+        // expect/actual classes (DatabaseFactory) are still flagged as Beta.
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
     // Android: a regular Android library (AAR) for android-app.
@@ -69,6 +74,13 @@ kotlin {
             // api: android-app uses the shared VMs as regular androidx ViewModels.
             api(libs.androidx.lifecycle.viewmodel)
 
+            // Persistence. The database type (TasksDatabase) is part of the public constructor of
+            // TaskRepository, so the runtime is api; coroutines-extensions is internal.
+            api(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
+            // Voice-note files (SystemFileSystem). Only Strings cross the public API → implementation.
+            implementation(libs.kotlinx.io.core)
+
             // Networking: Ktor + kotlinx.serialization. Implementation detail → implementation.
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
@@ -80,14 +92,33 @@ kotlin {
         // platformHttpEngine() (data/HttpEngine.*.kt), not by classpath discovery.
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.android.driver)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native.driver)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
+        }
+        // Android host tests run on the JVM: SQLite through JDBC (in-memory).
+        // The iOS tests use the native driver (already on the iosMain classpath).
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqldelight.sqlite.driver)
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("TasksDatabase") {
+            packageName.set("com.example.tasks.shared.db")
+            // Migration safety net: every N.sqm must turn schema N.db into the current schema.
+            // Committed snapshots live in src/commonMain/sqldelight/databases (1.db = schema v1).
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }
