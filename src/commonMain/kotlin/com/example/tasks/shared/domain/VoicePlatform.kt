@@ -25,9 +25,15 @@ interface AudioRecorder {
 }
 
 interface AudioPlayer {
-    /** Loads [path]; returns the duration in ms. Throws if the file is unplayable. */
+    /**
+     * Loads [path]. Throws if the file is unplayable. Returns Unit on purpose: a throwing ObjC
+     * method cannot also return a scalar, so Swift could not implement it. Read [durationMs] after.
+     */
     @Throws(Exception::class)
-    fun prepare(path: String): Long
+    fun prepare(path: String)
+
+    /** Duration in ms of the prepared file; valid after a successful [prepare]. */
+    fun durationMs(): Long
 
     fun play()
     fun pause()

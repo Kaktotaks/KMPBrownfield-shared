@@ -50,11 +50,12 @@ class FakePlayer : AudioPlayer {
     var seeks = mutableListOf<Long>()
     override var onCompletion: (() -> Unit)? = null
 
-    override fun prepare(path: String): Long {
+    override fun prepare(path: String) {
         if (failPrepare) error("unplayable")
         prepares += path
-        return durationMs
     }
+
+    override fun durationMs(): Long = durationMs
 
     override fun play() { plays++; playing = true }
     override fun pause() { pauses++; playing = false }

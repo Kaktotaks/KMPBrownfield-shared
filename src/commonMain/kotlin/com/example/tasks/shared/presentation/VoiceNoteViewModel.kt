@@ -440,7 +440,8 @@ class VoiceNoteViewModel(
         val current = note ?: return false
         try {
             check(files.exists(current.fileName)) { "voice file missing" }
-            preparedDurationMs = player.prepare(files.pathOf(current.fileName))
+            player.prepare(files.pathOf(current.fileName))
+            preparedDurationMs = player.durationMs()
             prepared = true
             if (speed != 1f) player.setSpeed(speed)
             if (positionMs > 0) player.seekTo(positionMs)

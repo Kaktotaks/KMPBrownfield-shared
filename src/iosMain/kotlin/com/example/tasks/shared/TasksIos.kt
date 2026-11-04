@@ -1,10 +1,12 @@
 package com.example.tasks.shared
 
+import app.cash.sqldelight.driver.native.inMemoryDriver
 import com.example.tasks.shared.data.DatabaseFactory
 import com.example.tasks.shared.data.KtorTaskApi
 import com.example.tasks.shared.data.TaskApi
 import com.example.tasks.shared.data.TaskRepository
 import com.example.tasks.shared.data.VoiceNoteFiles
+import com.example.tasks.shared.db.TasksDatabase
 import com.example.tasks.shared.domain.DateProvider
 import com.example.tasks.shared.domain.Logger
 import com.example.tasks.shared.domain.SystemDateProvider
@@ -38,6 +40,24 @@ object TasksIos {
 
     /** Production wiring: Ktor API, system date, no logging. Call once per process. */
     fun createRepository(): TaskRepository = createRepository(KtorTaskApi(), SystemDateProvider, Logger.NONE)
+
+    /**
+     * For tests and previews: a repository on a throw-away in-memory database (the persistent
+     * tasks.db is untouched). Voice files go to [voiceDirectory], which the caller owns.
+     */
+    fun createInMemoryRepository(
+        api: TaskApi,
+        dateProvider: DateProvider,
+        voiceDirectory: String,
+        logger: Logger,
+    ): TaskRepository = TaskRepository(
+        api = api,
+        dateProvider = dateProvider,
+        database = TasksDatabase(inMemoryDriver(TasksDatabase.Schema)),
+        voiceFiles = VoiceNoteFiles(voiceDirectory),
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        logger = logger,
+    )
 
     fun createRepository(api: TaskApi, dateProvider: DateProvider, logger: Logger): TaskRepository = TaskRepository(
         api = api,
