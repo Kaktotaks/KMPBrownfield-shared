@@ -1,5 +1,7 @@
 package com.example.tasks.shared.presentation
 
+import com.example.tasks.shared.data.RepoFixture
+import com.example.tasks.shared.data.StaticApi
 import com.example.tasks.shared.domain.Priority
 import com.example.tasks.shared.domain.SortOrder
 import com.example.tasks.shared.domain.StatusFilter
@@ -47,7 +49,7 @@ class TaskListViewModelTest : ViewModelTest() {
 
     @Test
     fun loadingBeforeRepositoryLoads() = runTest {
-        val repo = com.example.tasks.shared.data.TaskRepository(StaticApi(emptyList()), fixedDateProvider)
+        val repo = RepoFixture(StaticApi(emptyList())).also { fixtures += it }.repository
         val vm = TaskListViewModel(repo, fixedDateProvider)
         subscribe(vm.uiState)
         assertEquals(TaskListContent.Loading, vm.uiState.value.content)
