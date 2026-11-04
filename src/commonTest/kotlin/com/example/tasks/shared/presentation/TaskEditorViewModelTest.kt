@@ -22,7 +22,7 @@ class TaskEditorViewModelTest : ViewModelTest() {
         val vm = TaskEditorViewModel(TaskEditorViewModel.NEW_TASK_ID, repo, validator, fixedDateProvider)
 
         with(vm.uiState.value) {
-            assertEquals("New Task", screenTitle)
+            assertEquals("New task", screenTitle)
             assertEquals(Priority.MEDIUM, priority)
             assertEquals(TODAY, dueDate)
             assertEquals(listOf(ValidationError.TITLE_TOO_SHORT), errors)
@@ -45,7 +45,7 @@ class TaskEditorViewModelTest : ViewModelTest() {
         val repo = loadedRepository(task(1, title = "Old", dueDate = day(-3)))
         val vm = TaskEditorViewModel(1, repo, validator, fixedDateProvider)
 
-        assertEquals("Edit Task", vm.uiState.value.screenTitle)
+        assertEquals("Edit task", vm.uiState.value.screenTitle)
         assertTrue(vm.uiState.value.canSave) // overdue but unchanged → allowed
 
         vm.onDueDateChange(day(-1))

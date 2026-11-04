@@ -50,8 +50,8 @@ StatsCalculator.calculate(tasks, today) -> TaskStats:
 
 ## Navigation
 Bottom tab bar with 2 tabs: "Tasks" (list icon), "Stats" (chart icon).
-Tasks tab: list -> push Task detail. "+" in top bar opens editor as modal sheet ("New Task").
-Detail: "Edit" opens editor sheet ("Edit Task") prefilled. Delete -> confirmation -> pop back to list.
+Tasks tab: list -> push Task detail. "+" in top bar opens editor as modal sheet ("New task").
+Detail: "Edit" opens editor sheet ("Edit task") prefilled. Delete -> confirmation -> pop back to list.
 
 ## Screens
 1. Task list — title "Tasks"
@@ -68,7 +68,7 @@ Detail: "Edit" opens editor sheet ("Edit Task") prefilled. Delete -> confirmatio
    - Button "Mark as done" / "Mark as active"
    - Top bar "Edit"
    - Destructive button "Delete task" -> confirmation dialog "Delete task?" with "Delete" (destructive) / "Cancel"
-3. Task editor (sheet) — title "New Task" or "Edit Task"
+3. Task editor (sheet) — title "New task" or "Edit task"
    - Fields: "Title" text field, "Notes" multiline, "Priority" segmented (Low/Medium/High, default Medium), "Due date" date picker (date only, default today)
    - Validation errors shown in red under the form, live as the user types
    - Top bar: "Cancel" (dismiss) and "Save" (disabled while there are errors)
