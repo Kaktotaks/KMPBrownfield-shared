@@ -2,6 +2,7 @@ package com.example.tasks.shared.presentation
 
 import com.example.tasks.shared.data.TaskRepository
 import com.example.tasks.shared.domain.DateProvider
+import com.example.tasks.shared.domain.Place
 import com.example.tasks.shared.domain.Priority
 import com.example.tasks.shared.domain.Task
 import com.example.tasks.shared.domain.TaskValidator
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 data class TaskEditorUiState(
     val isNew: Boolean,
@@ -22,6 +24,10 @@ data class TaskEditorUiState(
     val errors: List<ValidationError>,
     /** The voice note as edited so far; committed by [TaskEditorViewModel.save], dropped by [TaskEditorViewModel.onCancel]. */
     val voiceNote: VoiceNote? = null,
+    /** Optional time of day on [dueDate]; null = "No time". */
+    val time: LocalTime? = null,
+    /** Optional place; null = "Add place". */
+    val place: Place? = null,
 ) {
     val screenTitle: String get() = if (isNew) "New task" else "Edit task"
     val canSave: Boolean get() = errors.isEmpty()
@@ -55,6 +61,8 @@ class TaskEditorViewModel(
                 dueDate = original?.dueDate ?: dateProvider.today(),
                 errors = emptyList(),
                 voiceNote = original?.voiceNote,
+                time = original?.time,
+                place = original?.place,
             ),
         ),
     )
@@ -67,6 +75,12 @@ class TaskEditorViewModel(
     fun onPriorityChange(value: Priority) = edit { it.copy(priority = value) }
 
     fun onDueDateChange(value: LocalDate) = edit { it.copy(dueDate = value) }
+
+    /** null = "No time". */
+    fun onTimeChange(value: LocalTime?) = edit { it.copy(time = value) }
+
+    /** null = "Clear place". Typically a result of [PlaceSearchViewModel]. */
+    fun onPlaceChange(value: Place?) = edit { it.copy(place = value) }
 
     /**
      * Called with every note change of the sheet's Draft VoiceNoteViewModel
@@ -97,10 +111,17 @@ class TaskEditorViewModel(
         val existing = original
         val note = state.voiceNote
         if (existing == null) {
-            repository.add(state.title, state.notes, state.priority, state.dueDate, note)
+            repository.add(state.title, state.notes, state.priority, state.dueDate, note, state.time, state.place)
         } else {
             repository.update(
-                existing.copy(title = state.title, notes = state.notes, priority = state.priority, dueDate = state.dueDate),
+                existing.copy(
+                    title = state.title,
+                    notes = state.notes,
+                    priority = state.priority,
+                    dueDate = state.dueDate,
+                    time = state.time,
+                    place = state.place,
+                ),
             )
             val originalNote = existing.voiceNote
             when {
