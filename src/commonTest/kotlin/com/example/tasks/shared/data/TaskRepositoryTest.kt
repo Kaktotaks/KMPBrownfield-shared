@@ -35,6 +35,8 @@ private class FakeTaskApi(var result: () -> List<Task>) : TaskApi {
     }
 }
 
+private fun Task.withoutSchedule() = copy(time = null, place = null)
+
 private fun note(name: String) = VoiceNote(name, 5_000, List(40) { 0.5f })
 
 class TaskRepositoryTest {
@@ -57,7 +59,8 @@ class TaskRepositoryTest {
         val repo = fixture(api).repository
         assertEquals(LoadState.Loading, repo.currentState)
         repo.load()
-        assertEquals(LoadState.Loaded(listOf(task(1))), repo.currentState)
+        // The first seed also applies the demo route (time + place); everything else is the API's task.
+        assertEquals(listOf(task(1)), repo.tasks.map { it.withoutSchedule() })
         assertEquals(TODAY, api.lastToday)
     }
 
@@ -71,7 +74,7 @@ class TaskRepositoryTest {
 
         // "App restart": a new repository over the same database.
         val restarted = TaskRepository(api, fixedDateProvider, f.database, f.files, f.scope)
-        assertEquals(LoadState.Loaded(listOf(task(1), task(2))), restarted.currentState)
+        assertEquals(listOf(task(1), task(2)), restarted.tasks.map { it.withoutSchedule() })
         restarted.load()
         assertEquals(1, api.calls)
     }

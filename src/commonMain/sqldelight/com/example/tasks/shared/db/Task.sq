@@ -1,4 +1,5 @@
--- Schema version 1. Migrations go next to this folder's root as N.sqm (e.g. 1.sqm in 0.8.0).
+-- Schema version 2 (1.sqm adds the time and place columns). Migrations live in migrations/N.sqm;
+-- databases/N.db are the committed snapshots verifyMigrations checks them against.
 -- Voice notes: only the file NAME is stored (relative to the voice-notes directory); the
 -- absolute path changes between iOS installs.
 
@@ -11,7 +12,11 @@ CREATE TABLE TaskEntity (
     is_done INTEGER NOT NULL DEFAULT 0,
     voice_file TEXT,                   -- file NAME only
     voice_duration_ms INTEGER,
-    voice_waveform TEXT                -- 40 comma-separated floats 0..1, 3 decimals
+    voice_waveform TEXT,               -- 40 comma-separated floats 0..1, 3 decimals
+    due_time TEXT,                     -- ISO HH:mm, NULL = no time (schema v2)
+    place_lat REAL,                    -- place_* are all NULL or all set (schema v2)
+    place_lng REAL,
+    place_address TEXT
 );
 
 CREATE TABLE Meta (
@@ -26,17 +31,18 @@ selectById:
 SELECT * FROM TaskEntity WHERE id = ?;
 
 insert:
-INSERT INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform, due_time, place_lat, place_lng, place_address)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Used by the first-launch seed: an id the user already took locally is kept (API row skipped).
 insertOrIgnore:
-INSERT OR IGNORE INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO TaskEntity(id, title, notes, priority, due_date, is_done, voice_file, voice_duration_ms, voice_waveform, due_time, place_lat, place_lng, place_address)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Voice columns are written only by setVoiceNote / clearVoiceNote, never by update.
+-- Time and place are written by update (the task carries the full value).
 update:
-UPDATE TaskEntity SET title = ?, notes = ?, priority = ?, due_date = ?, is_done = ? WHERE id = ?;
+UPDATE TaskEntity SET title = ?, notes = ?, priority = ?, due_date = ?, due_time = ?, place_lat = ?, place_lng = ?, place_address = ?, is_done = ? WHERE id = ?;
 
 setDone:
 UPDATE TaskEntity SET is_done = ? WHERE id = ?;
@@ -49,6 +55,15 @@ UPDATE TaskEntity SET voice_file = ?, voice_duration_ms = ?, voice_waveform = ? 
 
 clearVoiceNote:
 UPDATE TaskEntity SET voice_file = NULL, voice_duration_ms = NULL, voice_waveform = NULL WHERE id = ?;
+
+setPlace:
+UPDATE TaskEntity SET place_lat = ?, place_lng = ?, place_address = ? WHERE id = ?;
+
+clearPlace:
+UPDATE TaskEntity SET place_lat = NULL, place_lng = NULL, place_address = NULL WHERE id = ?;
+
+selectByDate:
+SELECT * FROM TaskEntity WHERE due_date = ? ORDER BY id;
 
 maxId:
 SELECT COALESCE(MAX(id), 0) FROM TaskEntity;
