@@ -29,6 +29,17 @@ data class TaskEditorUiState(
     /** Optional place; null = "Add place". */
     val place: Place? = null,
 ) {
+    // Source compatibility for Swift (defaults are not exported to ObjC): the 0.7 / 0.8 initializer.
+    constructor(
+        isNew: Boolean,
+        title: String,
+        notes: String,
+        priority: Priority,
+        dueDate: LocalDate,
+        errors: List<ValidationError>,
+        voiceNote: VoiceNote?,
+    ) : this(isNew, title, notes, priority, dueDate, errors, voiceNote, null, null)
+
     val screenTitle: String get() = if (isNew) "New task" else "Edit task"
     val canSave: Boolean get() = errors.isEmpty()
 }

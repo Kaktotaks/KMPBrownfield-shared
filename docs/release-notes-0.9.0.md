@@ -24,7 +24,12 @@ Map & daily routes: tasks get an optional time and place, and shared now owns al
 None.
 
 ## Breaking changes
-None for callers. The first launch after the upgrade migrates the database to schema v2 and seeds the demo route once.
+None for initializers: `Task`, `TaskItem` and `TaskEditorUiState` keep their previous Swift initializers. One Swift caveat: the generated
+`doCopy(...)` of `Task` and `TaskEditorUiState` gains `time` and `place` parameters, so Swift code calling `doCopy` with every argument
+spelled out must add them (`nil` for none). Kotlin callers are unaffected (named/default arguments).
+
+The first launch after the upgrade migrates the database to schema v2 and seeds the demo route once, giving up to five not-done tasks
+of today and four of tomorrow a time and an address (tasks that already have a time or a place are never overwritten).
 
 ## Requirements
 Unchanged: iOS 15+, Android minSdk 24.
