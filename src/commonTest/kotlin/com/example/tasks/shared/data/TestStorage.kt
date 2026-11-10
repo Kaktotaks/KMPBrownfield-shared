@@ -45,6 +45,10 @@ fun TasksDatabase.seed(tasks: List<Task>) {
                 voice_file = task.voiceNote?.fileName,
                 voice_duration_ms = task.voiceNote?.durationMs,
                 voice_waveform = task.voiceNote?.let { encodeWaveform(it.waveform) },
+                due_time = task.time?.toString(),
+                place_lat = task.place?.point?.lat,
+                place_lng = task.place?.point?.lng,
+                place_address = task.place?.address,
             )
         }
         taskQueries.setMeta("seeded", "1")

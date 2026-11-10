@@ -6,17 +6,21 @@ import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.example.tasks.shared.db.TaskEntity
 import com.example.tasks.shared.db.TasksDatabase
 import com.example.tasks.shared.domain.DateProvider
+import com.example.tasks.shared.domain.GeoPoint
 import com.example.tasks.shared.domain.Logger
+import com.example.tasks.shared.domain.Place
 import com.example.tasks.shared.domain.Priority
 import com.example.tasks.shared.domain.Task
 import com.example.tasks.shared.domain.VoiceNote
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -25,6 +29,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlin.coroutines.ContinuationInterceptor
 
 // In plain ObjC export a sealed interface is three unrelated classes (LoadStateLoading /
@@ -43,7 +48,7 @@ sealed interface LoadState {
  * - First launch: [load] fetches from the API and seeds the database (rows + `seeded=1`) in one
  *   transaction. Afterwards [load] never touches the network. No network and an empty database →
  *   [LoadState.Error].
- * - Writes ([add], [update], [toggle], [delete], [setVoiceNote], [clearVoiceNote]) are plain
+ * - Writes ([add], [update], [toggle], [delete], [setVoiceNote], [clearVoiceNote], [setPlace], [clearPlace]) are plain
  *   non-suspend calls: each is one small SQLite transaction executed before the call returns
  *   (so [add] can return the new task and callers can rely on ordering). The [state] flow then
  *   re-emits asynchronously on [scope]'s dispatcher.
@@ -102,6 +107,15 @@ class TaskRepository(
     /** Tasks of the current state (empty while loading or on error). */
     val tasks: List<Task> get() = (state.value as? LoadState.Loaded)?.tasks.orEmpty()
 
+    /**
+     * Tasks due on [date], in id order. Derived from [state] (no extra query): re-emits on every
+     * write, and only when this day's list actually changed.
+     * Swift (SKIE): `for await tasks in repository.tasksOn(date: day) { }`.
+     */
+    fun tasksOn(date: LocalDate): Flow<List<Task>> =
+        state.map { s -> (s as? LoadState.Loaded)?.tasks.orEmpty().filter { it.dueDate == date } }
+            .distinctUntilChanged()
+
     init {
         scope.launch { withContext(ioContext) { deleteOrphanedVoiceFiles() } }
     }
@@ -126,7 +140,11 @@ class TaskRepository(
     private suspend fun loadLocked() {
         loadFailed.value = false // Retry shows Loading again
         val seeded = withContext(ioContext) { queries.getMeta(SEEDED_KEY).executeAsOneOrNull() == SEEDED_VALUE }
-        if (seeded) return
+        if (seeded) {
+            // Existing install (0.8.x data): the demo route is added once, guarded by Meta.
+            withContext(ioContext) { applyDemoRoute() }
+            return
+        }
         try {
             val fetched = api.fetchTasks(dateProvider.today())
             withContext(ioContext) {
@@ -135,12 +153,33 @@ class TaskRepository(
                     fetched.forEach { queries.insertOrIgnore(it) }
                     queries.setMeta(SEEDED_KEY, SEEDED_VALUE)
                 }
+                applyDemoRoute()
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.log("TaskRepository: load failed", e)
             loadFailed.value = true
+        }
+    }
+
+    /**
+     * Gives some not-done tasks of today / tomorrow a time and a place (see [DemoRoute]) so the Map
+     * tab is not empty on first run. Runs once per database (Meta `demo_route_v1`) and never
+     * overwrites a task that already has a time or a place.
+     */
+    private fun applyDemoRoute() {
+        try {
+            database.transaction {
+                if (queries.getMeta(DEMO_ROUTE_KEY).executeAsOneOrNull() == DEMO_ROUTE_DONE) return@transaction
+                val all = queries.selectAll().executeAsList().map { it.toTask() }
+                DemoRoute.plan(all, dateProvider.today()).forEach { queries.update(it) }
+                queries.setMeta(DEMO_ROUTE_KEY, DEMO_ROUTE_DONE)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.log("TaskRepository: demo route failed", e)
         }
     }
 
@@ -153,6 +192,18 @@ class TaskRepository(
 
     /** Same as above, with a voice note stored in the same transaction. */
     fun add(title: String, notes: String, priority: Priority, dueDate: LocalDate, voiceNote: VoiceNote?): Task =
+        add(title, notes, priority, dueDate, voiceNote, null, null)
+
+    /** Full form: optional voice note, time of day and place, all stored in the same transaction. */
+    fun add(
+        title: String,
+        notes: String,
+        priority: Priority,
+        dueDate: LocalDate,
+        voiceNote: VoiceNote?,
+        time: LocalTime?,
+        place: Place?,
+    ): Task =
         database.transactionWithResult {
             val task = Task(
                 id = queries.maxId().executeAsOne().toInt() + 1,
@@ -162,21 +213,30 @@ class TaskRepository(
                 dueDate = dueDate,
                 isDone = false,
                 voiceNote = voiceNote,
+                time = time,
+                place = place,
             )
             queries.insert(task)
             task
         }
 
-    /** Updates title, notes, priority, due date and done state. The voice note is NOT touched: use [setVoiceNote] / [clearVoiceNote]. */
+    /**
+     * Updates title, notes, priority, due date, time, place and done state (the task carries the
+     * full value: `update(task.copy(time = ..., place = ...))`). The voice note is NOT touched:
+     * use [setVoiceNote] / [clearVoiceNote].
+     */
     fun update(task: Task) {
-        queries.update(
-            title = task.title.trim(),
-            notes = task.notes,
-            priority = task.priority.name,
-            due_date = task.dueDate.toString(),
-            is_done = if (task.isDone) 1L else 0L,
-            id = task.id.toLong(),
-        )
+        queries.update(task)
+    }
+
+    /** Sets the place of the task; the time and everything else stay. No-op if the task does not exist. */
+    fun setPlace(taskId: Int, place: Place) {
+        queries.setPlace(place.point.lat, place.point.lng, place.address, taskId.toLong())
+    }
+
+    /** Removes the place (the time stays). */
+    fun clearPlace(taskId: Int) {
+        queries.clearPlace(taskId.toLong())
     }
 
     fun toggle(id: Int) {
@@ -234,6 +294,8 @@ class TaskRepository(
     private companion object {
         const val SEEDED_KEY = "seeded"
         const val SEEDED_VALUE = "1"
+        const val DEMO_ROUTE_KEY = "demo_route_v1"
+        const val DEMO_ROUTE_DONE = "1"
     }
 }
 
@@ -247,6 +309,23 @@ private fun com.example.tasks.shared.db.TaskQueries.insertOrIgnore(task: Task) =
     voice_file = task.voiceNote?.fileName,
     voice_duration_ms = task.voiceNote?.durationMs,
     voice_waveform = task.voiceNote?.let { encodeWaveform(it.waveform) },
+    due_time = task.time?.toString(),
+    place_lat = task.place?.point?.lat,
+    place_lng = task.place?.point?.lng,
+    place_address = task.place?.address,
+)
+
+private fun com.example.tasks.shared.db.TaskQueries.update(task: Task) = update(
+    title = task.title.trim(),
+    notes = task.notes,
+    priority = task.priority.name,
+    due_date = task.dueDate.toString(),
+    due_time = task.time?.toString(),
+    place_lat = task.place?.point?.lat,
+    place_lng = task.place?.point?.lng,
+    place_address = task.place?.address,
+    is_done = if (task.isDone) 1L else 0L,
+    id = task.id.toLong(),
 )
 
 private fun com.example.tasks.shared.db.TaskQueries.insert(task: Task) = insert(
@@ -259,6 +338,10 @@ private fun com.example.tasks.shared.db.TaskQueries.insert(task: Task) = insert(
     voice_file = task.voiceNote?.fileName,
     voice_duration_ms = task.voiceNote?.durationMs,
     voice_waveform = task.voiceNote?.let { encodeWaveform(it.waveform) },
+    due_time = task.time?.toString(),
+    place_lat = task.place?.point?.lat,
+    place_lng = task.place?.point?.lng,
+    place_address = task.place?.address,
 )
 
 private fun TaskEntity.toTask() = Task(
@@ -269,6 +352,12 @@ private fun TaskEntity.toTask() = Task(
     dueDate = LocalDate.parse(due_date),
     isDone = is_done != 0L,
     voiceNote = voice_file?.let { VoiceNote(it, voice_duration_ms ?: 0L, decodeWaveform(voice_waveform)) },
+    time = due_time?.let { runCatching { LocalTime.parse(it) }.getOrNull() },
+    place = if (place_lat != null && place_lng != null) {
+        Place(GeoPoint(place_lat, place_lng), place_address.orEmpty())
+    } else {
+        null
+    },
 )
 
 /** Waveform column format: comma-separated floats, 3 decimals ("0.080,0.512,..."). */

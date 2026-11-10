@@ -156,6 +156,11 @@ class VoiceNoteViewModel(
         viewModelScope.launch { noteChanges.collect { editor.onVoiceNoteChange(it) } }
     }
 
+    /** Same for the Map tab's new-task sheet: `voiceVm.bindTo(mapVm)`. */
+    fun bindTo(map: MapViewModel) {
+        viewModelScope.launch { noteChanges.collect { map.onDraftVoiceNoteChange(it) } }
+    }
+
     // ---------------------------------------------------------------- recording intents
 
     fun onRecordTapped() {
